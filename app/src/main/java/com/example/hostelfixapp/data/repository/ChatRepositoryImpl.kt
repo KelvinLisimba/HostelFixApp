@@ -6,6 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.example.hostelfixapp.data.local.HostelFixLocalDb
+import com.example.hostelfixapp.ui.components.HostelFixNotificationHelper
 import com.example.hostelfixapp.data.model.ChatMessage
 import com.example.hostelfixapp.data.model.SyncState
 import com.example.hostelfixapp.data.model.User
@@ -82,10 +83,11 @@ class ChatRepositoryImpl(private val context: Context) : ChatRepository {
 
                     for (doc in snapshot.documents) {
                         try {
+                            val senderId = doc.getString("senderId") ?: ""
                             val msg = ChatMessage(
                                 messageId = doc.getString("messageId") ?: doc.id,
                                 reportId = doc.getString("reportId") ?: reportId,
-                                senderId = doc.getString("senderId") ?: "",
+                                senderId = senderId,
                                 senderName = doc.getString("senderName") ?: "",
                                 senderRole = try {
                                     UserRole.valueOf(doc.getString("senderRole") ?: UserRole.STUDENT.name)
@@ -96,6 +98,14 @@ class ChatRepositoryImpl(private val context: Context) : ChatRepository {
                                 syncState = SyncState.SYNCED
                             )
                             localDb.saveChatMessage(msg)
+
+                            val roleName = if (msg.senderRole == UserRole.STUDENT) "Student" else "Staff"
+                            HostelFixNotificationHelper.showPushNotification(
+                                context = context,
+                                title = "💬 New Message from ${msg.senderName} ($roleName)",
+                                messageText = msg.text.ifBlank { "Attached a damage photo" },
+                                reportId = reportId
+                            )
                         } catch (_: Exception) {}
                     }
                     notifyObservers(reportId)
